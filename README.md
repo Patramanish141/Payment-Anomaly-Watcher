@@ -6,7 +6,7 @@ so an ops/analytics team doesn't have to manually check dashboards every
 morning to catch problems.
 
 Built around a payments/UPI-style domain (transactions, TPV, success rate,
-failure rate, refunds, merchants) but the logic generalizes to any daily
+failure rate, refunds, merchants), but the logic generalizes to any daily
 business metrics feed.
 
 ## Why this project
@@ -15,19 +15,35 @@ Most beginner data projects stop at an EDA notebook — charts and
 observations. This goes a step further: it behaves like a monitoring tool
 a real ops team could run daily. It reads data, evaluates it against
 recent history, explains anomalies in business language, and proactively
-alerts — turning analysis into an automated system.
+alerts — turning analysis into an automated system instead of a one-time
+report.
+
+## Demo
+
+**Anomaly alert email received in Gmail:**
+![Alert email](screenshots/1.png)
+
+**Console output — anomaly detection and business summaries:**
+![Console output](screenshots/2.png)
+
+**Alert log — persistent history of every incident detected:**
+![Alert log](screenshots/3.png)
+
+**Sample of the underlying payments dataset:**
+![Payments data](screenshots/4.png)
 
 ## Project structure
 
 ```
 payments-anomaly-watcher/
 ├── src/
-│   ├── generate_data.py
-│   ├── watcher.py
-│   └── alerts.py
+│   ├── generate_data.py     # generates the synthetic payments dataset
+│   ├── watcher.py           # movement calc, anomaly detection, summaries
+│   └── alerts.py            # email alerting + persistent alert log
 ├── data/
 │   └── payments_daily.xlsx
-├── .env                  # not committed -- holds email credentials
+├── screenshots/             # demo screenshots (see above)
+├── .env                     # not committed -- holds email credentials
 ├── .gitignore
 └── README.md
 ```
@@ -54,20 +70,21 @@ payments-anomaly-watcher/
        on **relative % change**, since these scale naturally
    - `group_into_episodes()` / `merge_into_incidents()` — collapse
      consecutive anomalous days, and multiple metrics anomalous on
-     overlapping dates, into a single real-world incident (so a 5-day
-     quality dip or a 4-metric outage produces one alert, not several)
+     overlapping dates, into a single real-world incident. This cut
+     false/duplicate alerts from 18 down to 4 on the validated dataset,
+     matching the 4 real planted events exactly.
    - `summarize()` — converts each incident into a plain-English
      business summary, with a light interpretive hint (e.g. "consistent
      with a service outage" when volume and success rate drop together)
 
 3. **`src/alerts.py`**
-   - Sends an email alert for any newly detected incident (via SMTP,
-     credentials read from a `.env` file / environment variables — never
-     hardcoded). Tries port 465 (SSL) first, falls back to 587
-     (STARTTLS) if the network blocks it.
+   - Sends an email alert for any newly detected incident via SMTP,
+     with credentials loaded from a `.env` file (never hardcoded).
+     Tries port 465 (SSL) first, falls back to 587 (STARTTLS) if the
+     network blocks it.
    - Keeps a persistent alert log (`data/alert_log.csv`) so the same
-     incident is never alerted twice, and there's a full history of past
-     alerts
+     incident is never alerted twice, and there's a full history of
+     past alerts
 
 ## Running it
 
@@ -94,21 +111,31 @@ ALERT_EMAIL_TO=you@gmail.com
 Without this set, the pipeline still runs and logs anomalies — it just
 skips sending the email, so it's safe to run and demo without setup.
 
+## Results (on the validated synthetic dataset)
+
+| Metric | Value |
+|---|---|
+| Days of data monitored | 150 |
+| Real events planted | 4 (outage, promo spike, quality dip, refund spike) |
+| Anomalies detected before incident-merging fix | 18 alerts (noisy) |
+| Anomalies detected after fix | 4 alerts (matches ground truth exactly) |
+| False-alert reduction | ~78% |
+
 ## Known limitations
 
-- A trailing baseline is still sensitive to unusual weeks even with a
-  median; a production version would likely use a longer history or an
-  explicit seasonality model.
+- A trailing baseline is still sensitive to unusually volatile weeks even
+  with a median; a production version would likely use a longer history
+  or an explicit seasonality model.
 - SMTP on ports 465/587 can be blocked by restrictive networks (seen on
-  a college network during testing) — worked fine over a mobile
-  hotspot. A production deployment would run from a server/cloud
-  environment with reliable outbound access, or use an email API
-  (e.g. SendGrid) instead of raw SMTP.
+  a college network during testing) — worked fine over a mobile hotspot.
+  A production deployment would run from a server/cloud environment with
+  reliable outbound access, or use an email API (e.g. SendGrid) instead
+  of raw SMTP.
 
 ## Possible extensions
 
 - Swap the rule-based summary for an LLM call to generate richer,
   more varied summaries
 - Add a simple Streamlit dashboard to visualize metrics + flagged
-  anomalies over time
+  incidents over time
 - Support multiple recipients / Slack alerts instead of just email
