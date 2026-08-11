@@ -23,14 +23,11 @@ report.
 **Anomaly alert email received in Gmail:**
 ![Alert email](screenshots/1.png)
 
-**Console output — anomaly detection and business summaries:**
-![Console output](screenshots/2.png)
-
 **Alert log — persistent history of every incident detected:**
-![Alert log](screenshots/3.png)
+![Alert log](screenshots/2.png)
 
 **Sample of the underlying payments dataset:**
-![Payments data](screenshots/4.png)
+![Payments data](screenshots/3.png)
 
 ## Project structure
 
